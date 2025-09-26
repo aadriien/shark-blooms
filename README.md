@@ -2,7 +2,7 @@
 
 ## Description
 
-This PICO-8 game is a WIP... check back soon!
+This PICO-8 game is a WIP... check back soon for whale shark magic!
 
 
 ## Example Images
