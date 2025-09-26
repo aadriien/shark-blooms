@@ -6,6 +6,7 @@ __lua__
 -- CONFIGS
 SCREEN_SIZE = 128
 
+-- set red (8) as transparent color & restore black (0)
 palt(0, false) 
 palt(8, true)
 
@@ -29,11 +30,13 @@ function _init()
     cls()
 end
 
+
 function _update()
     if state == game_states.start then update_start()
     elseif state == game_states.game then update_game()
     elseif state == game_states.gameover then update_gameover() end
 end
+
 
 function _draw()
     cls()
@@ -83,31 +86,31 @@ end
 
 
 -- WHALE SHARK PLAYER
-player = Entity.create(48,60,32,32, 0, 0)
+player = Entity.create(48, 60, 32, 32, 0, 0)
 
 
 -- INPUT HANDLING
 function handle_input()
-    if btn(0) then player.x = max(0, player.x-1) end
-    if btn(1) then player.x = min(128, player.x+1) end
-    if btn(2) then player.y = max(0, player.y-1) end
-    if btn(3) then player.y = min(128, player.y+1) end
+    if btn(0) then player.x = max(-2, player.x - 2) end
+    if btn(1) then player.x = min(128 - player.w, player.x + 2) end
+    if btn(2) then player.y = max(0, player.y - 2) end
+    if btn(3) then player.y = min(130 - player.h, player.y + 2) end
 end
 
 
 -- TEXT DRAWING 
 function text_x_pos(text)
-    return SCREEN_SIZE/2 - flr(#text*4/2)
+    return SCREEN_SIZE / 2 - flr(#text * 4 / 2)
 end
 
 
 function write(text,x,y,color)
-    for i=0,2 do 
-        for j=0,2 do 
-            print(text,x+i,y+j,0) 
+    for i = 0, 2 do 
+        for j = 0, 2 do 
+            print(text, x + i, y + j, 0) 
         end 
     end
-    print(text,x+1,y+1,color)
+    print(text, x + 1, y + 1, color)
 end
 
 
@@ -129,27 +132,27 @@ function big_print_anim(x, y, text, color, big, animate, rect_bg)
 
     -- optional rectangle background
     if rect_bg then
-        rect(ledge-1, y-6, redge+1, y+h, 10)
-        rectfill(ledge, y-5, redge, y+h-1, 0)
-        line(ledge-1, y+h+1, redge+1, y+h+1, 9)
+        rect(ledge - 1, y - 6, redge + 1, y + h, 10)
+        rectfill(ledge, y - 5, redge, y + h - 1, 0)
+        line(ledge - 1, y + h + 1, redge + 1, y + h + 1, 9)
     end
 
     -- draw each letter with smooth 3x3 border
-    for i=0,#text do
+    for i = 0, #text do
         local ch = sub(text, i, i)
         local xp = ledge + (i * w) - 3
         if (big) then xp -= 3 end
-        local off = animate and sin((i/16) + time()) * 1.95 or 0
+        local off = animate and sin((i / 16) + time()) * 1.95 or 0
 
         -- border
-        for dx=-1,1 do
-            for dy=-1,1 do
-                print(tag..ch, xp+dx, y+off+dy-1, 1)
+        for dx = -1, 1 do
+            for dy = -1, 1 do
+                print(tag..ch, xp + dx, y + off + dy - 1, 1)
             end
         end
 
         -- main letter
-        print(tag..ch, xp, y+off-2, color)
+        print(tag..ch, xp, y + off - 2, color)
     end
 end
 
@@ -160,6 +163,7 @@ function update_start()
         change_state(game_states.game)
     end
 end
+
 
 function draw_start()
     rectfill(0, 0, SCREEN_SIZE, SCREEN_SIZE, 12)
@@ -181,9 +185,8 @@ end
 
 
 function draw_game()
-    rectfill(0,0,SCREEN_SIZE,SCREEN_SIZE,12)
+    rectfill(0, 0, SCREEN_SIZE, SCREEN_SIZE, 12)
     player:draw()
-    -- rect(player.x, player.y, player.x+player.w, player.y+player.h, 8)
 end
 
 
@@ -196,7 +199,7 @@ end
 
 
 function draw_gameover()
-    rectfill(0,0,SCREEN_SIZE,SCREEN_SIZE,3)
+    rectfill(0, 0, SCREEN_SIZE, SCREEN_SIZE, 3)
 
     big_print_anim(64, 40, "game over", 10, true, false, false)
 
