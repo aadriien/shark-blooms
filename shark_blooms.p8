@@ -25,27 +25,6 @@ Entity = {}
 Entity.__index = Entity
 
 
--- PICO-8 CALLBACKS
-function _init()
-    cls()
-end
-
-
-function _update()
-    if state == game_states.start then update_start()
-    elseif state == game_states.game then update_game()
-    elseif state == game_states.gameover then update_gameover() end
-end
-
-
-function _draw()
-    cls()
-    if state == game_states.start then draw_start()
-    elseif state == game_states.game then draw_game()
-    elseif state == game_states.gameover then draw_gameover() end
-end
-
-
 -- STATE MANAGEMENT
 function change_state(next_state)
     state = next_state
@@ -92,13 +71,9 @@ player = Entity.create(48, 60, 32, 32, 0, 0)
 -- RANDOMIZED PLANKTON
 plankton = {}
 
-for i = 0, 5 do 
-    -- plankton sprite IDs == 4 / 5 / 6
-    local sprite = flr(rnd(3)) + 4
-    local x, y = rnd(128), rnd(128)
 
-    add(plankton, Entity.create(x, y, 8, 8, sprite, 0))
-end
+-- TIMING  
+frames_elapsed = 0
 
 
 -- INPUT HANDLING
@@ -192,6 +167,7 @@ end
 -- GAME
 function update_game()
     handle_input()
+    frames_elapsed += 1
     -- game logic here
 end
 
@@ -199,10 +175,7 @@ end
 function draw_game()
     rectfill(0, 0, SCREEN_SIZE, SCREEN_SIZE, 1)
 
-    -- draw randomized floating plankton
-    for p in all(plankton) do 
-        spr(p.sx, p.x, p.y)
-    end
+    update_plankton()
 
     player:draw()
 end
@@ -222,6 +195,60 @@ function draw_gameover()
     big_print_anim(64, 40, "game over", 10, true, false, false)
 
     write("PRESS ❎", text_x_pos("PRESS ❎ "), 80, 7)
+end
+
+
+function create_plankton()
+    for i = 0, 3 do 
+        local x_group, y_group = rnd(128), rnd(128)
+
+        for j = 0, 4 do
+            -- plankton sprite IDs == 4 / 5 / 6
+            local sprite = flr(rnd(3)) + 4
+            local x = x_group + flr(rnd(33)) - 16
+            local y = y_group + flr(rnd(33)) - 16
+
+            add(plankton, Entity.create(x, y, 8, 8, sprite, 0))
+        end
+    end
+end
+
+
+function update_plankton()
+    -- draw randomized floating plankton
+    for p in all(plankton) do 
+        spr(p.sx, p.x, p.y)
+    end
+
+    if frames_elapsed % 5 == 0 then
+        -- then smoothly move by adjusting x, y
+        for p in all(plankton) do 
+            p.x += rnd(1) - 0.5
+            p.y += rnd(1) - 0.5
+        end
+    end
+end
+
+
+-- PICO-8 CALLBACKS
+function _init()
+    cls()
+    create_plankton()
+end
+
+
+function _update()
+    if state == game_states.start then update_start()
+    elseif state == game_states.game then update_game()
+    elseif state == game_states.gameover then update_gameover() end
+end
+
+
+function _draw()
+    cls()
+    if state == game_states.start then draw_start()
+    elseif state == game_states.game then draw_game()
+    elseif state == game_states.gameover then draw_gameover() end
 end
 
 
