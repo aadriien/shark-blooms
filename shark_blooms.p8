@@ -5,17 +5,22 @@ __lua__
 
 -- CONFIGS
 SCREEN_SIZE = 128
+CLUSTER_COUNT = 6
+SHARK_SPEED = 2
+NOTE_DURATION = 20
+
 
 -- set red (8) as transparent color & restore black (0)
-palt(0, false) 
+palt(0, false)
 palt(8, true)
 
 
 -- GAME STATES
-game_states = {
-    start = 0,
-    game = 1,
-    gameover = 2
+game_states = { 
+    start = 0, 
+    playback = 1, 
+    player_turn = 2, 
+    gameover = 3 
 }
 state = game_states.start
 
@@ -24,230 +29,264 @@ state = game_states.start
 Entity = {}
 Entity.__index = Entity
 
-
--- STATE MANAGEMENT
-function change_state(next_state)
-    state = next_state
-    cls()
-end
-
-
 function Entity.create(x, y, w, h, sx, sy)
     local e = setmetatable({}, Entity)
     e.x, e.y, e.w, e.h = x, y, w, h
-
-    -- source pos in sprite sheet (with size on sheet, eg 32)
     e.sx, e.sy = sx, sy
-    e.sw, e.sh = w, h
-
     return e
 end
 
-
 function Entity:draw()
-    -- draw sprite from sheet at entity position
-    sspr(
-        self.sx, self.sy,
-        self.sw, self.sh, 
-        self.x, self.y, 
-        self.w, self.h 
-    )
-end
-
-
-function Entity:collide(other)
-    return 
-        other.x < self.x + self.w and 
-        self.x < other.x + other.w and 
-        other.y < self.y + self.h and 
-        self.y < other.y + other.h
+    sspr(self.sx, self.sy, self.w, self.h, flr(self.x), flr(self.y), self.w, self.h)
 end
 
 
 -- WHALE SHARK PLAYER
 player = Entity.create(48, 60, 32, 32, 0, 0)
 
-
--- RANDOMIZED PLANKTON
-plankton = {}
-
-
--- TIMING  
+-- TIMING
 frames_elapsed = 0
 
-
--- INPUT HANDLING
+-- INPUT
 function handle_input()
-    if btn(0) then player.x = max(-2, player.x - 2) end
-    if btn(1) then player.x = min(128 - player.w, player.x + 2) end
-    if btn(2) then player.y = max(0, player.y - 2) end
-    if btn(3) then player.y = min(130 - player.h, player.y + 2) end
+    if btn(0) then player.x = max(0, player.x - SHARK_SPEED) end
+    if btn(1) then player.x = min(SCREEN_SIZE - player.w, player.x + SHARK_SPEED) end
+    if btn(2) then player.y = max(0, player.y - SHARK_SPEED) end
+    if btn(3) then player.y = min(SCREEN_SIZE - player.h, player.y + SHARK_SPEED) end
 end
 
 
--- TEXT DRAWING 
+-- TEXT DRAWING
 function text_x_pos(text)
     return SCREEN_SIZE / 2 - flr(#text * 4 / 2)
 end
 
-
 function write(text,x,y,color)
-    for i = 0, 2 do 
-        for j = 0, 2 do 
-            print(text, x + i, y + j, 0) 
-        end 
+    for i = 0, 2 do
+        for j = 0, 2 do
+            print(text, x + i, y + j, 0)
+        end
     end
     print(text, x + 1, y + 1, color)
 end
 
-
--- BIG PRINT ANIMATED
 function big_print_anim(x, y, text, color, big, animate, rect_bg)
     local w, h = 4, 6
     local color = color or 7
     local tag = ""
 
-    if (big) w = 7 h = 11 tag = "\^t\^w"
+    if big then 
+        w = 7 
+        h = 11 
+        tag = "\^t\^w"
+    end
 
     animate = animate ~= false
     rect_bg = rect_bg ~= false
 
-    -- text width & rectangle edges
     local text_w = #text * w
     local ledge = x - text_w / 2
     local redge = x + text_w / 2
 
-    -- optional rectangle background
     if rect_bg then
         rect(ledge - 1, y - 6, redge + 1, y + h, 10)
         rectfill(ledge, y - 5, redge, y + h - 1, 0)
         line(ledge - 1, y + h + 1, redge + 1, y + h + 1, 9)
     end
 
-    -- draw each letter with smooth 3x3 border
     for i = 0, #text do
         local ch = sub(text, i, i)
         local xp = ledge + (i * w) - 3
-        if (big) then xp -= 3 end
+
+        if big then 
+            xp -= 3 
+        end
+
         local off = animate and sin((i / 16) + time()) * 1.95 or 0
 
-        -- border
         for dx = -1, 1 do
             for dy = -1, 1 do
                 print(tag..ch, xp + dx, y + off + dy - 1, 1)
             end
         end
 
-        -- main letter
         print(tag..ch, xp, y + off - 2, color)
     end
 end
 
 
--- START
+-- START SCREEN
 function update_start()
     if btnp(4) or btnp(5) then
-        change_state(game_states.game)
+        create_clusters()
+        current_step = 1
+        input_index = 1
+        state = game_states.playback
     end
 end
-
 
 function draw_start()
     rectfill(0, 0, SCREEN_SIZE, SCREEN_SIZE, 12)
 
     big_print_anim(64, 20, "WHALY!", 7, false, true, true)
     big_print_anim(64, 40, "whale shark", 10, true, false, false)
-
     player:draw()
 
     write("PRESS ❎ TO START", text_x_pos("PRESS ❎ TO START "), 100, 7)
 end
 
 
--- GAME
-function update_game()
-    handle_input()
-    frames_elapsed += 1
-    -- game logic here
-end
+-- MUSICAL PLANKTON GAME
+plankton_clusters = {}
+sequence = {}
+current_step = 1
+input_index = 1
 
+notes = {48, 50, 52, 55, 57, 59}
 
-function draw_game()
-    rectfill(0, 0, SCREEN_SIZE, SCREEN_SIZE, 1)
+function create_clusters()
+    plankton_clusters = {}
 
-    update_plankton()
+    for i = 1, CLUSTER_COUNT do
+        local x = rnd(80) + 20
+        local y = rnd(50) + 20 
+        local cluster = { 
+            x = x, 
+            y = y, 
+            w = 8, 
+            h = 8, 
+            note = notes[i], 
+            glow = 0 
+        }
+        add(plankton_clusters, cluster)
+    end
 
-    player:draw()
-end
-
-
--- GAME OVER
-function update_gameover()
-    if btnp(4) or btnp(5) then
-        change_state(game_states.start)
+    sequence = {}
+    for i = 1, CLUSTER_COUNT do
+        add(sequence, i)
     end
 end
 
 
+-- PLAYBACK STATE
+function update_playback()
+    frames_elapsed += 1
+
+    -- move shark to corner
+    player.x, player.y = 4, 4 
+    
+    if frames_elapsed % NOTE_DURATION == 0 then
+        local idx = sequence[current_step]
+
+        plankton_clusters[idx].glow = 8
+        sfx(plankton_clusters[idx].note)
+
+        current_step += 1
+
+        if current_step > #sequence then
+            current_step = 1
+            input_index = 1
+            state = game_states.player_turn
+        end
+    end
+end
+
+function draw_playback()
+    rectfill(0, 0, SCREEN_SIZE, SCREEN_SIZE, 0)
+
+    for c in all(plankton_clusters) do
+        circfill(c.x, c.y, 4 + c.glow / 2, 10)
+        spr(4, c.x - 4, c.y - 4)
+
+        if c.glow > 0 then 
+            c.glow -= 0.3 
+        end
+    end
+
+    player:draw()
+
+    print("watch the sequence", 10, 110, 7)
+end
+
+
+-- PLAYER TURN
+function update_player_turn()
+    handle_input()
+
+    for i, c in pairs(plankton_clusters) do
+        if (
+            player.x + player.w / 2 > c.x - 4 and 
+            player.x + player.w / 2 < c.x + 4 and 
+            player.y + player.h / 2 > c.y - 4 and 
+            player.y + player.h / 2 < c.y + 4
+        ) then
+            if i == sequence[input_index] then
+                sfx(c.note)
+                c.glow = 8
+                input_index += 1    
+
+                if input_index > #sequence then
+                    state = game_states.playback
+                    current_step = 1
+                end
+            else
+                state = game_states.gameover
+            end
+        end
+    end
+end
+
+function draw_player_turn()
+    rectfill(0, 0, SCREEN_SIZE, SCREEN_SIZE, 0)
+
+    for c in all(plankton_clusters) do
+        circfill(c.x, c.y, 4 + c.glow / 2, 10)
+        spr(4, c.x - 4, c.y - 4)
+
+        if c.glow > 0 then 
+            c.glow -= 0.3 
+        end
+    end
+
+    player:draw()
+
+    print("repeat the sequence", 10, 110, 7)
+end
+
+
+-- GAMEOVER END SCREEN 
+function update_gameover()
+    if btnp(4) or btnp(5) then
+        state = game_states.start
+        player.x, player.y = 48, 60
+    end
+end
+
 function draw_gameover()
     rectfill(0, 0, SCREEN_SIZE, SCREEN_SIZE, 3)
-
     big_print_anim(64, 40, "game over", 10, true, false, false)
 
     write("PRESS ❎", text_x_pos("PRESS ❎ "), 80, 7)
 end
 
 
-function create_plankton()
-    for i = 0, 3 do 
-        local x_group, y_group = rnd(128), rnd(128)
-
-        for j = 0, 4 do
-            -- plankton sprite IDs == 4 / 5 / 6
-            local sprite = flr(rnd(3)) + 4
-            local x = x_group + flr(rnd(33)) - 16
-            local y = y_group + flr(rnd(33)) - 16
-
-            add(plankton, Entity.create(x, y, 8, 8, sprite, 0))
-        end
-    end
-end
-
-
-function update_plankton()
-    -- draw randomized floating plankton
-    for p in all(plankton) do 
-        spr(p.sx, p.x, p.y)
-    end
-
-    if frames_elapsed % 5 == 0 then
-        -- then smoothly move by adjusting x, y
-        for p in all(plankton) do 
-            p.x += rnd(1) - 0.5
-            p.y += rnd(1) - 0.5
-        end
-    end
-end
-
-
--- PICO-8 CALLBACKS
+-- CALLBACKS FOR PICO-8
 function _init()
     cls()
-    create_plankton()
 end
-
 
 function _update()
     if state == game_states.start then update_start()
-    elseif state == game_states.game then update_game()
+    elseif state == game_states.playback then update_playback()
+    elseif state == game_states.player_turn then update_player_turn()
     elseif state == game_states.gameover then update_gameover() end
 end
-
 
 function _draw()
     cls()
     if state == game_states.start then draw_start()
-    elseif state == game_states.game then draw_game()
+    elseif state == game_states.playback then draw_playback()
+    elseif state == game_states.player_turn then draw_player_turn()
     elseif state == game_states.gameover then draw_gameover() end
 end
 
