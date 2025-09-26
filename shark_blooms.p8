@@ -61,7 +61,7 @@ function text_x_pos(text)
     return SCREEN_SIZE / 2 - flr(#text * 4 / 2)
 end
 
-function write(text,x,y,color)
+function write(text, x, y, color)
     for i = 0, 2 do
         for j = 0, 2 do
             print(text, x + i, y + j, 0)
